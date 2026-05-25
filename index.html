@@ -36,16 +36,17 @@
         </div>
 
         <div class="mb-4">
-            <input type="text" id="search-input" oninput="renderTable()" placeholder="🔍 輸入關鍵字搜尋來賓單位、姓名或職稱..." class="w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+            <input type="text" id="search-input" oninput="renderTable()" placeholder="🔍 輸入關鍵字搜尋類別、單位、姓名或職稱..." class="w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
         </div>
 
         <div class="overflow-x-auto border border-gray-200 rounded-lg shadow-xs">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-100">
                     <tr>
-                        <th class="px-6 py-4 text-left text-sm font-bold text-gray-600 tracking-wider w-1/3">服務單位</th>
-                        <th class="px-6 py-4 text-left text-sm font-bold text-gray-600 tracking-wider w-1/4">職稱</th>
-                        <th class="px-6 py-4 text-left text-sm font-bold text-gray-600 tracking-wider w-1/4">姓名</th>
+                        <th class="px-6 py-4 text-left text-sm font-bold text-gray-600 tracking-wider w-1/4">類別</th>
+                        <th class="px-6 py-4 text-left text-sm font-bold text-gray-600 tracking-wider w-1/4">服務單位</th>
+                        <th class="px-6 py-4 text-left text-sm font-bold text-gray-600 tracking-wider w-1/5">職稱</th>
+                        <th class="px-6 py-4 text-left text-sm font-bold text-gray-600 tracking-wider w-1/5">姓名</th>
                         <th class="px-6 py-4 text-center text-sm font-bold text-gray-600 tracking-wider">狀態 / 介紹控管</th>
                     </tr>
                 </thead>
@@ -57,7 +58,7 @@
 
     <script>
         // ⚠️ 請在此處貼上您的 Google Apps Script 網頁應用程式 URL
-        const API_URL = 'https://script.google.com/macros/s/AKfycbwDb4rhNGW8RZ4GPpAVgzNUrRoIXgsP4WjulXVj1cYpLfrHGL6cBBWixEBTsl8BmikL2w/exec'; 
+        const API_URL = 'https://script.google.com/macros/s/AKfycbxBPQKfZs8wrhHpE_MxRoU3kFv2W2FcL2OTGFoF9OporztbMT7lZ6jEq5GWVrRUBzKCTg/exec'; 
         
         let guests = [];
         let currentMode = 'reception'; 
@@ -84,6 +85,7 @@
                     const existing = guests.find(g => g.id === ng.id);
                     return {
                         ...ng,
+                        category: (ng.category || '').trim(), // 去除試算表類別的前後空白
                         unit: (ng.unit || '').trim(),
                         title: (ng.title || '').trim(),
                         name: (ng.name || '').trim(),
@@ -131,15 +133,6 @@
             }
         }
 
-        function getUnitWeight(unitName) {
-            if (unitName.includes('政府') || unitName.includes('教育局')) return 1; 
-            if (unitName.includes('立法委員') || unitName.includes('議員')) return 2; 
-            if (unitName.includes('國小') || unitName.includes('學校')) return 3;    
-            if (unitName.includes('家長會')) return 4;                              
-            if (unitName.includes('里長') || unitName.includes('發展協會')) return 5; 
-            return 99; 
-        }
-
         function clearPendingConfirm() {
             if (pendingTimeout) {
                 clearTimeout(pendingTimeout);
@@ -179,23 +172,29 @@
             
             if (currentMode === 'vip') {
                 displayGuests.sort((a, b) => {
+                    // 1. 主要排序：已報到的排最上面
                     if (a.status !== b.status) return b.status === '已報到' ? 1 : -1;
                     
                     if (a.status === '已報到') {
-                        const weightA = getUnitWeight(a.unit);
-                        const weightB = getUnitWeight(b.unit);
-                        if (weightA !== weightB) return weightA - weightB;
+                        // 2. 次要排序：完全依據試算表填寫的「類別欄位」進行排序 (例如：01 必然在 02 前面)
+                        const catCompare = a.category.localeCompare(b.category, 'zh-Hant');
+                        if (catCompare !== 0) return catCompare;
+                        
+                        // 3. 微調排序一：同類別中，未介紹的排前面
                         if (a.introduced !== b.introduced) return a.introduced ? 1 : -1;
+                        
+                        // 4. 微調排序二：依單位名稱排序，讓同單位完全貼在一起
                         return a.unit.localeCompare(b.unit, 'zh-Hant');
                     }
                     return 0;
                 });
             } else {
+                // 接待處模式：依試算表原始輸入順序 (ID)
                 displayGuests.sort((a, b) => a.id - b.id);
             }
 
             displayGuests.forEach(guest => {
-                if (guest.unit.toLowerCase().includes(keyword) || guest.name.toLowerCase().includes(keyword) || guest.title.toLowerCase().includes(keyword)) {
+                if (guest.category.toLowerCase().includes(keyword) || guest.unit.toLowerCase().includes(keyword) || guest.name.toLowerCase().includes(keyword) || guest.title.toLowerCase().includes(keyword)) {
                     const tr = document.createElement('tr');
                     
                     let actionHtml = '';
@@ -204,12 +203,10 @@
                     if (currentMode === 'reception') {
                         if (guest.status === '已報到') {
                             actionHtml = `
-                                <button onclick="handleReceptionClick(${guest.id}, 'prev') && false" 
+                                <button onclick="handleReceptionClick(${guest.id}, '已報到')" 
                                         class="px-4 py-2 text-sm font-bold rounded-full cursor-pointer transition status-checked hover:bg-red-100 hover:text-red-700">
                                     ✓ 已報到
                                 </button>`;
-                            // 修正行內傳參，確保退回機制順暢
-                            actionHtml = actionHtml.replace("handleReceptionClick(${guest.id}, 'prev') && false", `handleReceptionClick(${guest.id}, '已報到')`);
                         } else {
                             if (pendingConfirmId === guest.id) {
                                 actionHtml = `
@@ -228,7 +225,6 @@
                     } else {
                         if (guest.status === '已報到') {
                             if (!guest.introduced) {
-                                // 🌟 已移除 animate-pulse，改為純靜態色塊與粗邊條提示，畫面更沉穩
                                 rowClass = 'bg-amber-50 font-semibold border-l-4 border-amber-500'; 
                                 actionHtml = `
                                     <button onclick="toggleIntroduced(${guest.id})" class="px-4 py-2 text-sm font-extrabold rounded-lg bg-blue-600 text-white hover:bg-blue-700 cursor-pointer transition shadow-md">
@@ -249,6 +245,7 @@
 
                     tr.className = `${rowClass} transition-all duration-300 hover:bg-gray-50/50`;
                     tr.innerHTML = `
+                        <td class="px-6 py-4.5 whitespace-nowrap text-base text-gray-500 font-medium">${guest.category}</td>
                         <td class="px-6 py-4.5 whitespace-nowrap text-lg text-gray-900 font-bold tracking-wide">${guest.unit}</td>
                         <td class="px-6 py-4.5 whitespace-nowrap text-base text-gray-600 font-medium">${guest.title}</td>
                         <td class="px-6 py-4.5 whitespace-nowrap text-xl text-gray-900 font-black">${guest.name}</td>
