@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校園活動來賓即時報到系統</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        .status-checked { background-color: #d1fae5; color: #065f46; }
+        .status-unchecked { background-color: #f3f4f6; color: #374151; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-5xl mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6">
+        <div class="flex flex-col md:flex-row justify-between items-center border-b pb-4 mb-6 gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">🏫 活動來賓即時報到系統</h1>
+                <p class="text-sm text-gray-500 mt-1" id="update-time">最後更新：載入中...</p>
+            </div>
+            <div class="flex bg-gray-100 p-1 rounded-lg">
+                <button id="btn-reception" onclick="switchMode('reception')" class="px-4 py-2 rounded-md font-medium text-sm transition bg-white shadow-xs text-blue-600">
+                    🗄️ 接待處登記
+                </button>
+                <button id="btn-vip" onclick="switchMode('vip')" class="px-4 py-2 rounded-md font-medium text-sm transition text-gray-600 hover:text-gray-900">
+                    🏛️ 會場長官席
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 mb-6 text-center">
+            <div class="bg-blue-50 p-3 rounded-lg"><p class="text-xs text-blue-600 font-medium">應到人數</p><p id="stat-total" class="text-xl font-bold text-blue-800">0</p></div>
+            <div class="bg-emerald-50 p-3 rounded-lg"><p class="text-xs text-emerald-600 font-medium">已報到</p><p id="stat-present" class="text-xl font-bold text-emerald-800">0</p></div>
+            <div class="bg-gray-50 p-3 rounded-lg"><p class="text-xs text-gray-600 font-medium">未報到</p><p id="stat-absent" class="text-xl font-bold text-gray-800">0</p></div>
+        </div>
+
+        <div class="mb-4">
+            <input type="text" id="search-input" oninput="renderTable()" placeholder="🔍 輸入關鍵字搜尋來賓單位、姓名或職稱..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">服務單位</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">職稱</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">狀態 / 操作</th>
+                    </tr>
+                </thead>
+                <tbody id="guest-table-body" class="bg-white divide-y divide-gray-200">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // ⚠️ 請在此處貼上您的 Google Apps Script 網頁應用程式 URL
+        const API_URL = 'https://script.google.com/macros/s/AKfycbzmZImqAHnkl9H9XBFNVPlRPl2GficEeGQOUVR8gxAaumbS8jDDdLXhH0PibAe5U935jg/exec'; 
+        
+        let guests = [];
+        let currentMode = 'reception'; 
+        let refreshInterval;
+
+        async function init() {
+            await fetchGuests();
+            switchMode('reception');
+            
+            refreshInterval = setInterval(() => {
+                if (currentMode === 'vip') fetchGuests();
+            }, 5000);
+        }
+
+        async function fetchGuests() {
+            try {
+                const response = await fetch(API_URL);
+                guests = await response.json();
+                updateStats();
+                renderTable();
+                document.getElementById('update-time').innerText = `最後更新：${new Date().toLocaleTimeString()}`;
+            } catch (error) {
+                console.error('讀取資料失敗:', error);
+            }
+        }
+
+        function updateStats() {
+            const total = guests.length;
+            const present = guests.filter(g => g.status === '已報到').length;
+            document.getElementById('stat-total').innerText = total;
+            document.getElementById('stat-present').innerText = present;
+            document.getElementById('stat-absent').innerText = total - present;
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+            const btnRec = document.getElementById('btn-reception');
+            const btnVip = document.getElementById('btn-vip');
+            
+            if (mode === 'reception') {
+                btnRec.className = "px-4 py-2 rounded-md font-medium text-sm transition bg-white shadow-xs text-blue-600";
+                btnVip.className = "px-4 py-2 rounded-md font-medium text-sm transition text-gray-600 hover:text-gray-900";
+            } else {
+                btnVip.className = "px-4 py-2 rounded-md font-medium text-sm transition bg-white shadow-xs text-blue-600";
+                btnRec.className = "px-4 py-2 rounded-md font-medium text-sm transition text-gray-600 hover:text-gray-900";
+            }
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('guest-table-body');
+            const keyword = document.getElementById('search-input').value.toLowerCase();
+            tbody.innerHTML = '';
+
+            let displayGuests = [...guests];
+            if (currentMode === 'vip') {
+                displayGuests.sort((a, b) => (b.status === '已報到' ? 1 : 0) - (a.status === '已報到' ? 1 : 0));
+            }
+
+            displayGuests.forEach(guest => {
+                // 搜尋條件加入 guest.unit (單位)
+                if (guest.unit.toLowerCase().includes(keyword) || guest.name.toLowerCase().includes(keyword) || guest.title.toLowerCase().includes(keyword)) {
+                    const tr = document.createElement('tr');
+                    
+                    let actionHtml = '';
+                    if (currentMode === 'reception') {
+                        const isChecked = guest.status === '已報到';
+                        actionHtml = `
+                            <button onclick="toggleStatus(${guest.id}, '${isChecked ? '未報到' : '已報到'}')" 
+                                    class="px-3 py-1 text-sm font-semibold rounded-full cursor-pointer transition ${isChecked ? 'status-checked hover:bg-red-100 hover:text-red-700' : 'status-unchecked hover:bg-blue-100 hover:text-blue-700'}">
+                                ${guest.status}
+                            </button>`;
+                    } else {
+                        actionHtml = `<span class="px-3 py-1 text-sm font-semibold rounded-full ${guest.status === '已報到' ? 'bg-emerald-500 text-white animate-pulse' : 'bg-gray-200 text-gray-500'}">${guest.status}</span>`;
+                    }
+
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${guest.unit}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${guest.title}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">${guest.name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">${actionHtml}</td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+            });
+        }
+
+        async function toggleStatus(id, newStatus) {
+            const guest = guests.find(g => g.id === id);
+            if (guest) {
+                guest.status = newStatus;
+                updateStats();
+                renderTable();
+            }
+
+            try {
+                await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ id: id, status: newStatus })
+                });
+            } catch (error) {
+                console.error('更新狀態失敗:', error);
+                alert('網路連線異常，狀態同步失敗！');
+                fetchGuests();
+            }
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
