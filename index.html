@@ -56,7 +56,7 @@
 
     <script>
         // ⚠️ 請在此處貼上您的 Google Apps Script 網頁應用程式 URL
-        const API_URL = 'https://script.google.com/macros/s/AKfycbwDb4rhNGW8RZ4GPpAVgzNUrRoIXgsP4WjulXVj1cYpLfrHGL6cBBWixEBTsl8BmikL2w/exec'; 
+        const API_URL = 'YOUR_GAS_WEB_APP_URL'; 
         
         let guests = [];
         let currentMode = 'reception'; 
@@ -80,7 +80,6 @@
                     const existing = guests.find(g => g.id === ng.id);
                     return {
                         ...ng,
-                        // 清除試算表文字中不小心按到的前後空白，避免排序錯亂
                         unit: (ng.unit || '').trim(),
                         title: (ng.title || '').trim(),
                         name: (ng.name || '').trim(),
@@ -127,6 +126,16 @@
             }
         }
 
+        // 🌟 核心：自訂單位群組權重（數字越小排越前面）
+        function getUnitWeight(unitName) {
+            if (unitName.includes('政府') || unitName.includes('教育局')) return 1; // 1. 主管機關
+            if (unitName.includes('立法委員') || unitName.includes('議員')) return 2; // 2. 民意代表
+            if (unitName.includes('國小') || unitName.includes('學校')) return 3;    // 3. 學校單位（所有國小會黏在這裡！）
+            if (unitName.includes('家長會')) return 4;                              // 4. 家長會
+            if (unitName.includes('里長') || unitName.includes('發展協會')) return 5; // 5. 地方基層
+            return 99; // 其他未分類的排最後
+        }
+
         function renderTable() {
             const tbody = document.getElementById('guest-table-body');
             const keyword = document.getElementById('search-input').value.toLowerCase();
@@ -136,25 +145,30 @@
             
             if (currentMode === 'vip') {
                 displayGuests.sort((a, b) => {
-                    // 1. 主要排序：先分「已報到」和「未報到」，已報到的排最上面
+                    // 1. 主要排序：已報到的排最上面
                     if (a.status !== b.status) {
                         return b.status === '已報到' ? 1 : -1;
                     }
                     
-                    // 2. 次要排序：如果是同一個報到狀態，則「強制依照服務單位」進行筆畫排序（讓同單位絕對黏在一起）
-                    const unitCompare = a.unit.localeCompare(b.unit, 'zh-Hant');
-                    if (unitCompare !== 0) {
-                        return unitCompare;
-                    }
-                    
-                    // 3. 微調排序：同單位之中，「未介紹」的排在「已介紹」的前面
-                    if (a.introduced !== b.introduced) {
-                        return a.introduced ? 1 : -1;
+                    if (a.status === '已報到') {
+                        // 2. 次要排序：比較群組權重（民意代表 -> 國小 -> 家長會...）
+                        const weightA = getUnitWeight(a.unit);
+                        const weightB = getUnitWeight(b.unit);
+                        if (weightA !== weightB) {
+                            return weightA - weightB;
+                        }
+                        
+                        // 3. 微調排序一：同一個群組內（例如都是國小），未介紹的排前面
+                        if (a.introduced !== b.introduced) {
+                            return a.introduced ? 1 : -1;
+                        }
+                        
+                        // 4. 微調排序二：同群組且同介紹狀態，依單位筆劃排序（讓同校的人完全黏在一起）
+                        return a.unit.localeCompare(b.unit, 'zh-Hant');
                     }
                     return 0;
                 });
             } else {
-                // 接待處模式：依試算表原始輸入順序
                 displayGuests.sort((a, b) => a.id - b.id);
             }
 
@@ -175,7 +189,7 @@
                     } else {
                         if (guest.status === '已報到') {
                             if (!guest.introduced) {
-                                rowClass = 'bg-amber-50/80 font-semibold'; 
+                                rowClass = 'bg-amber-50/70 font-semibold'; 
                                 actionHtml = `
                                     <button onclick="toggleIntroduced(${guest.id})" class="px-3 py-1 text-xs font-bold rounded-md bg-blue-600 text-white hover:bg-blue-700 cursor-pointer transition shadow-xs">
                                         📢 點此標記已介紹
