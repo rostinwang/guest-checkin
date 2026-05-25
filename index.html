@@ -39,15 +39,39 @@
             <input type="text" id="search-input" oninput="renderTable()" placeholder="🔍 輸入關鍵字搜尋類別、單位、姓名或職稱..." class="w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
         </div>
 
-        <div class="overflow-x-auto border border-gray-200 rounded-lg shadow-xs">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-100">
+        <div id="section-to-introduce" class="hidden mb-8">
+            <h2 class="text-lg font-black text-amber-800 bg-amber-50 px-4 py-2 rounded-t-lg border-l-4 border-amber-500 flex justify-between items-center">
+                <span>📢 候駕中 / 待介紹來賓 (已到場)</span>
+                <span id="count-to-introduce" class="text-sm bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">0 人</span>
+            </h2>
+            <div class="overflow-x-auto border-x border-b border-gray-200 rounded-b-lg shadow-xs">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <tbody id="table-to-introduce" class="bg-white divide-y divide-gray-200"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="section-introduced" class="hidden mb-8">
+            <h2 class="text-lg font-bold text-gray-600 bg-gray-100 px-4 py-2 rounded-t-lg border-l-4 border-gray-400 flex justify-between items-center">
+                <span>✓ 已完成介紹來賓</span>
+                <span id="count-introduced" class="text-sm bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">0 人</span>
+            </h2>
+            <div class="overflow-x-auto border-x border-b border-gray-200 rounded-b-lg shadow-xs">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <tbody id="table-introduced" class="bg-gray-50 divide-y divide-gray-200 opacity-60"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="section-main border border-gray-200 rounded-lg shadow-xs">
+            <table class="min-w-full divide-y divide-gray-200" id="main-table">
+                <thead class="bg-gray-100" id="main-table-head">
                     <tr>
                         <th class="px-6 py-4 text-left text-sm font-bold text-gray-600 tracking-wider w-1/4">類別</th>
                         <th class="px-6 py-4 text-left text-sm font-bold text-gray-600 tracking-wider w-1/4">服務單位</th>
                         <th class="px-6 py-4 text-left text-sm font-bold text-gray-600 tracking-wider w-1/5">職稱</th>
                         <th class="px-6 py-4 text-left text-sm font-bold text-gray-600 tracking-wider w-1/5">姓名</th>
-                        <th class="px-6 py-4 text-center text-sm font-bold text-gray-600 tracking-wider">狀態 / 介紹控管</th>
+                        <th class="px-6 py-4 text-center text-sm font-bold text-gray-600 tracking-wider">狀態 / 操作</th>
                     </tr>
                 </thead>
                 <tbody id="guest-table-body" class="bg-white divide-y divide-gray-200">
@@ -66,6 +90,10 @@
         
         let pendingConfirmId = null;
         let pendingTimeout = null;
+
+        window.onload = function() {
+            init();
+        };
 
         async function init() {
             await fetchGuests();
@@ -113,13 +141,22 @@
             currentMode = mode;
             const btnRec = document.getElementById('btn-reception');
             const btnVip = document.getElementById('btn-vip');
+            const secToIntroduce = document.getElementById('section-to-introduce');
+            const secIntroduced = document.getElementById('section-introduced');
+            const mainTableHead = document.getElementById('main-table-head');
             
             if (mode === 'reception') {
                 btnRec.className = "px-5 py-2.5 rounded-md font-bold text-sm transition cursor-pointer bg-white shadow-xs text-blue-600";
                 btnVip.className = "px-5 py-2.5 rounded-md font-bold text-sm transition cursor-pointer text-gray-600 hover:text-gray-900";
+                secToIntroduce.classList.add('hidden');
+                secIntroduced.classList.add('hidden');
+                mainTableHead.classList.remove('hidden');
             } else {
                 btnVip.className = "px-5 py-2.5 rounded-md font-bold text-sm transition cursor-pointer bg-white shadow-xs text-blue-600";
                 btnRec.className = "px-5 py-2.5 rounded-md font-bold text-sm transition cursor-pointer text-gray-600 hover:text-gray-900";
+                secToIntroduce.classList.remove('hidden');
+                secIntroduced.classList.remove('hidden');
+                mainTableHead.classList.add('hidden'); // 長官席隱藏底層綜合表格的表頭
             }
             clearPendingConfirm();
             renderTable();
@@ -134,10 +171,7 @@
         }
 
         function clearPendingConfirm() {
-            if (pendingTimeout) {
-                clearTimeout(pendingTimeout);
-                pendingTimeout = null;
-            }
+            if (pendingTimeout) clearTimeout(pendingTimeout);
             pendingConfirmId = null;
         }
 
@@ -155,7 +189,6 @@
                 clearPendingConfirm();
                 pendingConfirmId = id;
                 renderTable(); 
-                
                 pendingTimeout = setTimeout(() => {
                     pendingConfirmId = null;
                     renderTable();
@@ -163,90 +196,115 @@
             }
         }
 
+        // 產生單一行 HTML 的輔助函式
+        function createRowHtml(guest, actionHtml) {
+            return `
+                <td class="px-6 py-4.5 whitespace-nowrap text-base text-gray-500 font-medium w-1/4">${guest.category}</td>
+                <td class="px-6 py-4.5 whitespace-nowrap text-lg text-gray-900 font-bold tracking-wide w-1/4">${guest.unit}</td>
+                <td class="px-6 py-4.5 whitespace-nowrap text-base text-gray-600 font-medium w-1/5">${guest.title}</td>
+                <td class="px-6 py-4.5 whitespace-nowrap text-xl text-gray-900 font-black w-1/5">${guest.name}</td>
+                <td class="px-6 py-4.5 whitespace-nowrap text-center">${actionHtml}</td>
+            `;
+        }
+
         function renderTable() {
-            const tbody = document.getElementById('guest-table-body');
             const keyword = document.getElementById('search-input').value.toLowerCase();
-            tbody.innerHTML = '';
+            
+            // 取得三個不同區塊的容器
+            const tbodyMain = document.getElementById('guest-table-body');
+            const tbodyToIntroduce = document.getElementById('table-to-introduce');
+            const tbodyIntroduced = document.getElementById('table-introduced');
+            
+            // 清空舊資料
+            tbodyMain.innerHTML = '';
+            tbodyToIntroduce.innerHTML = '';
+            tbodyIntroduced.innerHTML = '';
 
             let displayGuests = [...guests];
-            
+            let toIntroduceCount = 0;
+            let introducedCount = 0;
+
             if (currentMode === 'vip') {
+                // 📊 長官席排序：純粹依照試算表的「類別欄位」及「單位」排序
                 displayGuests.sort((a, b) => {
-                    if (a.status !== b.status) return b.status === '已報到' ? 1 : -1;
-                    
-                    if (a.status === '已報到') {
-                        const catCompare = a.category.localeCompare(b.category, 'zh-Hant');
-                        if (catCompare !== 0) return catCompare;
-                        if (a.introduced !== b.introduced) return a.introduced ? 1 : -1;
-                        return a.unit.localeCompare(b.unit, 'zh-Hant');
-                    }
-                    return 0;
+                    const catCompare = a.category.localeCompare(b.category, 'zh-Hant');
+                    if (catCompare !== 0) return catCompare;
+                    return a.unit.localeCompare(b.unit, 'zh-Hant');
                 });
+
+                displayGuests.forEach(guest => {
+                    if (guest.category.toLowerCase().includes(keyword) || guest.unit.toLowerCase().includes(keyword) || guest.name.toLowerCase().includes(keyword) || guest.title.toLowerCase().includes(keyword)) {
+                        
+                        // 只處理「已報到」的貴賓進入長官席區塊
+                        if (guest.status === '已報到') {
+                            const tr = document.createElement('tr');
+                            tr.className = "transition-all duration-300 hover:bg-gray-100/50";
+                            
+                            if (!guest.introduced) {
+                                // 🏢 上半部：未介紹 (高亮色塊)
+                                tr.className += " bg-amber-50/60 font-semibold border-l-4 border-amber-500";
+                                let actionHtml = `
+                                    <button onclick="toggleIntroduced(${guest.id})" class="px-4 py-2 text-sm font-extrabold rounded-lg bg-blue-600 text-white hover:bg-blue-700 cursor-pointer transition shadow-md">
+                                        📢 點此標記已介紹
+                                    </button>`;
+                                tr.innerHTML = createRowHtml(guest, actionHtml);
+                                tbodyToIntroduce.appendChild(tr);
+                                toIntroduceCount++;
+                            } else {
+                                // 🎓 下半部：已介紹 (灰色淡出)
+                                let actionHtml = `
+                                    <button onclick="toggleIntroduced(${guest.id})" class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-300 text-gray-700 hover:bg-gray-400 cursor-pointer transition">
+                                        ✓ 已介紹 (撤銷)
+                                    </button>`;
+                                tr.innerHTML = createRowHtml(guest, actionHtml);
+                                tbodyIntroduced.appendChild(tr);
+                                introducedCount++;
+                            }
+                        }
+                    }
+                });
+                
+                // 更新長官席的各別小計人數
+                document.getElementById('count-to-introduce').innerText = `${toIntroduceCount} 人`;
+                document.getElementById('count-introduced').innerText = `${introducedCount} 人`;
+
             } else {
+                // 🗄️ 接待處模式：依試算表原始 ID 順序輸出單一表格（含未報到）
                 displayGuests.sort((a, b) => a.id - b.id);
-            }
-
-            displayGuests.forEach(guest => {
-                if (guest.category.toLowerCase().includes(keyword) || guest.unit.toLowerCase().includes(keyword) || guest.name.toLowerCase().includes(keyword) || guest.title.toLowerCase().includes(keyword)) {
-                    const tr = document.createElement('tr');
-                    
-                    let actionHtml = '';
-                    let rowClass = 'bg-white'; 
-
-                    if (currentMode === 'reception') {
+                
+                displayGuests.forEach(guest => {
+                    if (guest.category.toLowerCase().includes(keyword) || guest.unit.toLowerCase().includes(keyword) || guest.name.toLowerCase().includes(keyword) || guest.title.toLowerCase().includes(keyword)) {
+                        const tr = document.createElement('tr');
+                        tr.className = "bg-white transition-all duration-300 hover:bg-gray-50/50";
+                        
+                        let actionHtml = '';
                         if (guest.status === '已報到') {
                             actionHtml = `
-                                <button onclick="handleReceptionClick(${guest.id}, '已報到')" 
-                                        class="px-4 py-2 text-sm font-bold rounded-full cursor-pointer transition status-checked hover:bg-red-100 hover:text-red-700">
+                                <button onclick="handleReceptionClick(${guest.id}, '已報到')" class="px-4 py-2 text-sm font-bold rounded-full cursor-pointer transition status-checked hover:bg-red-100 hover:text-red-700">
                                     ✓ 已報到
                                 </button>`;
                         } else {
                             if (pendingConfirmId === guest.id) {
                                 actionHtml = `
-                                    <button onclick="handleReceptionClick(${guest.id}, '未報到')" 
-                                            class="px-4 py-2 text-sm font-extrabold rounded-full cursor-pointer transition status-confirm shadow-sm animate-bounce">
+                                    <button onclick="handleReceptionClick(${guest.id}, '未報到')" class="px-4 py-2 text-sm font-extrabold rounded-full cursor-pointer transition status-confirm shadow-sm animate-bounce">
                                         ❓ 再點一次確認
                                     </button>`;
                             } else {
                                 actionHtml = `
-                                    <button onclick="handleReceptionClick(${guest.id}, '未報到')" 
-                                            class="px-4 py-2 text-sm font-bold rounded-full cursor-pointer transition status-unchecked hover:bg-blue-50 hover:text-blue-600">
+                                    <button onclick="handleReceptionClick(${guest.id}, '未報到')" class="px-4 py-2 text-sm font-bold rounded-full cursor-pointer transition status-unchecked hover:bg-blue-50 hover:text-blue-600">
                                         未報到
                                     </button>`;
                             }
                         }
-                    } else {
-                        if (guest.status === '已報到') {
-                            if (!guest.introduced) {
-                                rowClass = 'bg-amber-50 font-semibold border-l-4 border-amber-500'; 
-                                actionHtml = `
-                                    <button onclick="toggleIntroduced(${guest.id})" class="px-4 py-2 text-sm font-extrabold rounded-lg bg-blue-600 text-white hover:bg-blue-700 cursor-pointer transition shadow-md">
-                                        📢 點此標記已介紹
-                                    </button>`;
-                            } else {
-                                rowClass = 'bg-gray-50 opacity-40';
-                                actionHtml = `
-                                    <button onclick="toggleIntroduced(${guest.id})" class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-300 text-gray-700 hover:bg-gray-400 cursor-pointer transition">
-                                        ✓ 已介紹 (撤銷)
-                                    </button>`;
-                            }
-                        } else {
-                            rowClass = 'bg-white opacity-25';
-                            actionHtml = `<span class="px-4 py-2 text-sm font-medium text-gray-400">未報到</span>`;
-                        }
+                        
+                        // 若已報到，在接待處也給予淡綠色底提示
+                        if(guest.status === '已報到') tr.className = "bg-emerald-50/30 hover:bg-gray-50/50";
+                        
+                        tr.innerHTML = createRowHtml(guest, actionHtml);
+                        tbodyMain.appendChild(tr);
                     }
-
-                    tr.className = `${rowClass} transition-all duration-300 hover:bg-gray-50/50`;
-                    tr.innerHTML = `
-                        <td class="px-6 py-4.5 whitespace-nowrap text-base text-gray-500 font-medium">${guest.category}</td>
-                        <td class="px-6 py-4.5 whitespace-nowrap text-lg text-gray-900 font-bold tracking-wide">${guest.unit}</td>
-                        <td class="px-6 py-4.5 whitespace-nowrap text-base text-gray-600 font-medium">${guest.title}</td>
-                        <td class="px-6 py-4.5 whitespace-nowrap text-xl text-gray-900 font-black">${guest.name}</td>
-                        <td class="px-6 py-4.5 whitespace-nowrap text-center">${actionHtml}</td>
-                    `;
-                    tbody.appendChild(tr);
-                }
-            });
+                });
+            }
         }
 
         async function toggleStatus(id, newStatus) {
@@ -268,8 +326,6 @@
                 fetchGuests();
             }
         }
-
-        window.onload = init;
     </script>
 </body>
 </html>
