@@ -56,7 +56,7 @@
 
     <script>
         // ⚠️ 請在此處貼上您的 Google Apps Script 網頁應用程式 URL
-        const API_URL = 'https://script.google.com/macros/s/AKfycbzmZImqAHnkl9H9XBFNVPlRPl2GficEeGQOUVR8gxAaumbS8jDDdLXhH0PibAe5U935jg/exec'; 
+        const API_URL = 'https://script.google.com/macros/s/AKfycbwDb4rhNGW8RZ4GPpAVgzNUrRoIXgsP4WjulXVj1cYpLfrHGL6cBBWixEBTsl8BmikL2w/exec'; 
         
         let guests = [];
         let currentMode = 'reception'; 
@@ -112,12 +112,26 @@
             tbody.innerHTML = '';
 
             let displayGuests = [...guests];
+            
+            // 📊 排序邏輯調整
             if (currentMode === 'vip') {
-                displayGuests.sort((a, b) => (b.status === '已報到' ? 1 : 0) - (a.status === '已報到' ? 1 : 0));
+                displayGuests.sort((a, b) => {
+                    // 1. 先比較報到狀態（已報到排在未報到前面）
+                    if (a.status !== b.status) {
+                        return b.status === '已報到' ? 1 : -1;
+                    }
+                    // 2. 如果都「已報到」，則按照「單位名稱」進行字串排序（同單位會排在一起）
+                    if (a.status === '已報到') {
+                        return a.unit.localeCompare(b.unit, 'zh-Hant');
+                    }
+                    return 0;
+                });
+            } else {
+                // 接待處模式：保持原始試算表順序，方便工作人員對照
+                displayGuests.sort((a, b) => a.id - b.id);
             }
 
             displayGuests.forEach(guest => {
-                // 搜尋條件加入 guest.unit (單位)
                 if (guest.unit.toLowerCase().includes(keyword) || guest.name.toLowerCase().includes(keyword) || guest.title.toLowerCase().includes(keyword)) {
                     const tr = document.createElement('tr');
                     
@@ -134,7 +148,7 @@
                     }
 
                     tr.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${guest.unit}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">${guest.unit}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${guest.title}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">${guest.name}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">${actionHtml}</td>
