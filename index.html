@@ -58,7 +58,7 @@
 
     <script>
         // ⚠️ 請在此處貼上您的 Google Apps Script 網頁應用程式 URL
-        const API_URL = 'https://script.google.com/macros/s/AKfycbxBORwJsP8_kbrkJor7Hvr049DEfSCxXyM0r3DL5xboDq_RXmnE7qPq-y5uvmZF9vkA9w/exec'; 
+        const API_URL = 'YOUR_GAS_WEB_APP_URL'; 
         
         let guests = [];
         let currentMode = 'reception'; 
@@ -85,7 +85,7 @@
                     const existing = guests.find(g => g.id === ng.id);
                     return {
                         ...ng,
-                        category: (ng.category || '').trim(), // 去除試算表類別的前後空白
+                        category: (ng.category || '').trim(),
                         unit: (ng.unit || '').trim(),
                         title: (ng.title || '').trim(),
                         name: (ng.name || '').trim(),
@@ -172,24 +172,17 @@
             
             if (currentMode === 'vip') {
                 displayGuests.sort((a, b) => {
-                    // 1. 主要排序：已報到的排最上面
                     if (a.status !== b.status) return b.status === '已報到' ? 1 : -1;
                     
                     if (a.status === '已報到') {
-                        // 2. 次要排序：完全依據試算表填寫的「類別欄位」進行排序 (例如：01 必然在 02 前面)
                         const catCompare = a.category.localeCompare(b.category, 'zh-Hant');
                         if (catCompare !== 0) return catCompare;
-                        
-                        // 3. 微調排序一：同類別中，未介紹的排前面
                         if (a.introduced !== b.introduced) return a.introduced ? 1 : -1;
-                        
-                        // 4. 微調排序二：依單位名稱排序，讓同單位完全貼在一起
                         return a.unit.localeCompare(b.unit, 'zh-Hant');
                     }
                     return 0;
                 });
             } else {
-                // 接待處模式：依試算表原始輸入順序 (ID)
                 displayGuests.sort((a, b) => a.id - b.id);
             }
 
