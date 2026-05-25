@@ -63,7 +63,6 @@
         let currentMode = 'reception'; 
         let refreshInterval;
         
-        // 用來追蹤接待處點擊確認狀態的計時器與ID
         let pendingConfirmId = null;
         let pendingTimeout = null;
 
@@ -120,7 +119,6 @@
                 btnVip.className = "px-5 py-2.5 rounded-md font-bold text-sm transition cursor-pointer bg-white shadow-xs text-blue-600";
                 btnRec.className = "px-5 py-2.5 rounded-md font-bold text-sm transition cursor-pointer text-gray-600 hover:text-gray-900";
             }
-            // 切換模式時清除任何待確認狀態
             clearPendingConfirm();
             renderTable();
         }
@@ -133,7 +131,6 @@
             }
         }
 
-        // 🌟 單位群組權重（數字越小排越前面）
         function getUnitWeight(unitName) {
             if (unitName.includes('政府') || unitName.includes('教育局')) return 1; 
             if (unitName.includes('立法委員') || unitName.includes('議員')) return 2; 
@@ -152,25 +149,20 @@
         }
 
         function handleReceptionClick(id, currentStatus) {
-            // 如果目前已經是「已報到」，點擊直接改成「未報到」（退回機制不需要兩步驟防誤觸）
             if (currentStatus === '已報到') {
                 toggleStatus(id, '未報到');
                 clearPendingConfirm();
                 return;
             }
 
-            // 如果目前是「未報到」
             if (pendingConfirmId === id) {
-                // 這是第二次點擊：正式觸發報到
                 toggleStatus(id, '已報到');
                 clearPendingConfirm();
             } else {
-                // 這是第一次點擊：進入「確認報到？」狀態
                 clearPendingConfirm();
                 pendingConfirmId = id;
-                renderTable(); // 重新渲染來改變按鈕外觀
+                renderTable(); 
                 
-                // 2 秒後自動取消確認狀態（防呆逾時）
                 pendingTimeout = setTimeout(() => {
                     pendingConfirmId = null;
                     renderTable();
@@ -210,23 +202,22 @@
                     let rowClass = 'bg-white'; 
 
                     if (currentMode === 'reception') {
-                        // 🗄️ 接待處模式（含防誤觸雙擊機制）
                         if (guest.status === '已報到') {
                             actionHtml = `
-                                <button onclick="handleReceptionClick(${guest.id}, '已報到')" 
+                                <button onclick="handleReceptionClick(${guest.id}, 'prev') && false" 
                                         class="px-4 py-2 text-sm font-bold rounded-full cursor-pointer transition status-checked hover:bg-red-100 hover:text-red-700">
                                     ✓ 已報到
                                 </button>`;
+                            // 修正行內傳參，確保退回機制順暢
+                            actionHtml = actionHtml.replace("handleReceptionClick(${guest.id}, 'prev') && false", `handleReceptionClick(${guest.id}, '已報到')`);
                         } else {
                             if (pendingConfirmId === guest.id) {
-                                // 進入確認狀態的按鈕外觀
                                 actionHtml = `
                                     <button onclick="handleReceptionClick(${guest.id}, '未報到')" 
                                             class="px-4 py-2 text-sm font-extrabold rounded-full cursor-pointer transition status-confirm shadow-sm animate-bounce">
                                         ❓ 再點一次確認
                                     </button>`;
                             } else {
-                                // 預設未報到按鈕外觀
                                 actionHtml = `
                                     <button onclick="handleReceptionClick(${guest.id}, '未報到')" 
                                             class="px-4 py-2 text-sm font-bold rounded-full cursor-pointer transition status-unchecked hover:bg-blue-50 hover:text-blue-600">
@@ -235,11 +226,10 @@
                             }
                         }
                     } else {
-                        // 🏛️ 長官席模式（含字體放大與新到場閃爍提示）
                         if (guest.status === '已報到') {
                             if (!guest.introduced) {
-                                // 🌟 新到場、未介紹：使用 bg-amber-50，並加上 animate-pulse 閃爍呼吸燈提示
-                                rowClass = 'bg-amber-50 font-semibold animate-pulse border-l-4 border-amber-500'; 
+                                // 🌟 已移除 animate-pulse，改為純靜態色塊與粗邊條提示，畫面更沉穩
+                                rowClass = 'bg-amber-50 font-semibold border-l-4 border-amber-500'; 
                                 actionHtml = `
                                     <button onclick="toggleIntroduced(${guest.id})" class="px-4 py-2 text-sm font-extrabold rounded-lg bg-blue-600 text-white hover:bg-blue-700 cursor-pointer transition shadow-md">
                                         📢 點此標記已介紹
@@ -257,7 +247,6 @@
                         }
                     }
 
-                    // 🛠️ 字體級距全面放大優化
                     tr.className = `${rowClass} transition-all duration-300 hover:bg-gray-50/50`;
                     tr.innerHTML = `
                         <td class="px-6 py-4.5 whitespace-nowrap text-lg text-gray-900 font-bold tracking-wide">${guest.unit}</td>
