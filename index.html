@@ -8,9 +8,10 @@
     <style>
         .status-checked { background-color: #d1fae5; color: #065f46; }
         .status-unchecked { background-color: #f3f4f6; color: #374151; }
+        .status-confirm { background-color: #fef3c7; color: #92400e; }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen p-4 md:p-8">
+<body class="bg-gray-50 min-h-screen p-3 md:p-8">
 
     <div class="max-w-5xl mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6">
         <div class="flex flex-col md:flex-row justify-between items-center border-b pb-4 mb-6 gap-4">
@@ -18,34 +19,34 @@
                 <h1 class="text-2xl font-bold text-gray-800">🏫 活動來賓即時報到系統</h1>
                 <p class="text-sm text-gray-500 mt-1" id="update-time">最後更新：載入中...</p>
             </div>
-            <div class="flex bg-gray-100 p-1 rounded-lg">
-                <button id="btn-reception" onclick="switchMode('reception')" class="px-4 py-2 rounded-md font-medium text-sm transition bg-white shadow-xs text-blue-600">
+            <div class="flex bg-gray-100 p-1 rounded-lg shadow-inner">
+                <button id="btn-reception" onclick="switchMode('reception')" class="px-5 py-2.5 rounded-md font-bold text-sm transition cursor-pointer bg-white shadow-xs text-blue-600">
                     🗄️ 接待處登記
                 </button>
-                <button id="btn-vip" onclick="switchMode('vip')" class="px-4 py-2 rounded-md font-medium text-sm transition text-gray-600 hover:text-gray-900">
+                <button id="btn-vip" onclick="switchMode('vip')" class="px-5 py-2.5 rounded-md font-bold text-sm transition cursor-pointer text-gray-600 hover:text-gray-900">
                     🏛️ 會場長官席
                 </button>
             </div>
         </div>
 
         <div class="grid grid-cols-3 gap-4 mb-6 text-center">
-            <div class="bg-blue-50 p-3 rounded-lg"><p class="text-xs text-blue-600 font-medium">應到人數</p><p id="stat-total" class="text-xl font-bold text-blue-800">0</p></div>
-            <div class="bg-emerald-50 p-3 rounded-lg"><p class="text-xs text-emerald-600 font-medium">已報到</p><p id="stat-present" class="text-xl font-bold text-emerald-800">0</p></div>
-            <div class="bg-gray-50 p-3 rounded-lg"><p class="text-xs text-gray-600 font-medium">未報到</p><p id="stat-absent" class="text-xl font-bold text-gray-800">0</p></div>
+            <div class="bg-blue-50 p-3 rounded-lg"><p class="text-xs text-blue-600 font-medium">應到人數</p><p id="stat-total" class="text-2xl font-bold text-blue-800">0</p></div>
+            <div class="bg-emerald-50 p-3 rounded-lg"><p class="text-xs text-emerald-600 font-medium">已報到</p><p id="stat-present" class="text-2xl font-bold text-emerald-800">0</p></div>
+            <div class="bg-gray-50 p-3 rounded-lg"><p class="text-xs text-gray-600 font-medium">未報到</p><p id="stat-absent" class="text-2xl font-bold text-gray-800">0</p></div>
         </div>
 
         <div class="mb-4">
-            <input type="text" id="search-input" oninput="renderTable()" placeholder="🔍 輸入關鍵字搜尋來賓單位、姓名或職稱..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+            <input type="text" id="search-input" oninput="renderTable()" placeholder="🔍 輸入關鍵字搜尋來賓單位、姓名或職稱..." class="w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
         </div>
 
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto border border-gray-200 rounded-lg shadow-xs">
             <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
+                <thead class="bg-gray-100">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">服務單位</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">職稱</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">狀態 / 介紹控管</th>
+                        <th class="px-6 py-4 text-left text-sm font-bold text-gray-600 tracking-wider w-1/3">服務單位</th>
+                        <th class="px-6 py-4 text-left text-sm font-bold text-gray-600 tracking-wider w-1/4">職稱</th>
+                        <th class="px-6 py-4 text-left text-sm font-bold text-gray-600 tracking-wider w-1/4">姓名</th>
+                        <th class="px-6 py-4 text-center text-sm font-bold text-gray-600 tracking-wider">狀態 / 介紹控管</th>
                     </tr>
                 </thead>
                 <tbody id="guest-table-body" class="bg-white divide-y divide-gray-200">
@@ -56,11 +57,15 @@
 
     <script>
         // ⚠️ 請在此處貼上您的 Google Apps Script 網頁應用程式 URL
-        const API_URL = 'https://script.google.com/macros/s/AKfycbwDb4rhNGW8RZ4GPpAVgzNUrRoIXgsP4WjulXVj1cYpLfrHGL6cBBWixEBTsl8BmikL2w/exec'; 
+        const API_URL = 'YOUR_GAS_WEB_APP_URL'; 
         
         let guests = [];
         let currentMode = 'reception'; 
         let refreshInterval;
+        
+        // 用來追蹤接待處點擊確認狀態的計時器與ID
+        let pendingConfirmId = null;
+        let pendingTimeout = null;
 
         async function init() {
             await fetchGuests();
@@ -109,12 +114,14 @@
             const btnVip = document.getElementById('btn-vip');
             
             if (mode === 'reception') {
-                btnRec.className = "px-4 py-2 rounded-md font-medium text-sm transition bg-white shadow-xs text-blue-600";
-                btnVip.className = "px-4 py-2 rounded-md font-medium text-sm transition text-gray-600 hover:text-gray-900";
+                btnRec.className = "px-5 py-2.5 rounded-md font-bold text-sm transition cursor-pointer bg-white shadow-xs text-blue-600";
+                btnVip.className = "px-5 py-2.5 rounded-md font-bold text-sm transition cursor-pointer text-gray-600 hover:text-gray-900";
             } else {
-                btnVip.className = "px-4 py-2 rounded-md font-medium text-sm transition bg-white shadow-xs text-blue-600";
-                btnRec.className = "px-4 py-2 rounded-md font-medium text-sm transition text-gray-600 hover:text-gray-900";
+                btnVip.className = "px-5 py-2.5 rounded-md font-bold text-sm transition cursor-pointer bg-white shadow-xs text-blue-600";
+                btnRec.className = "px-5 py-2.5 rounded-md font-bold text-sm transition cursor-pointer text-gray-600 hover:text-gray-900";
             }
+            // 切換模式時清除任何待確認狀態
+            clearPendingConfirm();
             renderTable();
         }
 
@@ -126,14 +133,49 @@
             }
         }
 
-        // 🌟 核心：自訂單位群組權重（數字越小排越前面）
+        // 🌟 單位群組權重（數字越小排越前面）
         function getUnitWeight(unitName) {
-            if (unitName.includes('政府') || unitName.includes('教育局')) return 1; // 1. 主管機關
-            if (unitName.includes('立法委員') || unitName.includes('議員')) return 2; // 2. 民意代表
-            if (unitName.includes('國小') || unitName.includes('學校')) return 3;    // 3. 學校單位（所有國小會黏在這裡！）
-            if (unitName.includes('家長會')) return 4;                              // 4. 家長會
-            if (unitName.includes('里長') || unitName.includes('發展協會')) return 5; // 5. 地方基層
-            return 99; // 其他未分類的排最後
+            if (unitName.includes('政府') || unitName.includes('教育局')) return 1; 
+            if (unitName.includes('立法委員') || unitName.includes('議員')) return 2; 
+            if (unitName.includes('國小') || unitName.includes('學校')) return 3;    
+            if (unitName.includes('家長會')) return 4;                              
+            if (unitName.includes('里長') || unitName.includes('發展協會')) return 5; 
+            return 99; 
+        }
+
+        function clearPendingConfirm() {
+            if (pendingTimeout) {
+                clearTimeout(pendingTimeout);
+                pendingTimeout = null;
+            }
+            pendingConfirmId = null;
+        }
+
+        function handleReceptionClick(id, currentStatus) {
+            // 如果目前已經是「已報到」，點擊直接改成「未報到」（退回機制不需要兩步驟防誤觸）
+            if (currentStatus === '已報到') {
+                toggleStatus(id, '未報到');
+                clearPendingConfirm();
+                return;
+            }
+
+            // 如果目前是「未報到」
+            if (pendingConfirmId === id) {
+                // 這是第二次點擊：正式觸發報到
+                toggleStatus(id, '已報到');
+                clearPendingConfirm();
+            } else {
+                // 這是第一次點擊：進入「確認報到？」狀態
+                clearPendingConfirm();
+                pendingConfirmId = id;
+                renderTable(); // 重新渲染來改變按鈕外觀
+                
+                // 2 秒後自動取消確認狀態（防呆逾時）
+                pendingTimeout = setTimeout(() => {
+                    pendingConfirmId = null;
+                    renderTable();
+                }, 2000);
+            }
         }
 
         function renderTable() {
@@ -145,25 +187,13 @@
             
             if (currentMode === 'vip') {
                 displayGuests.sort((a, b) => {
-                    // 1. 主要排序：已報到的排最上面
-                    if (a.status !== b.status) {
-                        return b.status === '已報到' ? 1 : -1;
-                    }
+                    if (a.status !== b.status) return b.status === '已報到' ? 1 : -1;
                     
                     if (a.status === '已報到') {
-                        // 2. 次要排序：比較群組權重（民意代表 -> 國小 -> 家長會...）
                         const weightA = getUnitWeight(a.unit);
                         const weightB = getUnitWeight(b.unit);
-                        if (weightA !== weightB) {
-                            return weightA - weightB;
-                        }
-                        
-                        // 3. 微調排序一：同一個群組內（例如都是國小），未介紹的排前面
-                        if (a.introduced !== b.introduced) {
-                            return a.introduced ? 1 : -1;
-                        }
-                        
-                        // 4. 微調排序二：同群組且同介紹狀態，依單位筆劃排序（讓同校的人完全黏在一起）
+                        if (weightA !== weightB) return weightA - weightB;
+                        if (a.introduced !== b.introduced) return a.introduced ? 1 : -1;
                         return a.unit.localeCompare(b.unit, 'zh-Hant');
                     }
                     return 0;
@@ -180,39 +210,60 @@
                     let rowClass = 'bg-white'; 
 
                     if (currentMode === 'reception') {
-                        const isChecked = guest.status === '已報到';
-                        actionHtml = `
-                            <button onclick="toggleStatus(${guest.id}, '${isChecked ? '未報到' : '已報到'}')" 
-                                    class="px-3 py-1 text-sm font-semibold rounded-full cursor-pointer transition ${isChecked ? 'status-checked hover:bg-red-100 hover:text-red-700' : 'status-unchecked hover:bg-blue-100 hover:text-blue-700'}">
-                                ${guest.status}
-                            </button>`;
+                        // 🗄️ 接待處模式（含防誤觸雙擊機制）
+                        if (guest.status === '已報到') {
+                            actionHtml = `
+                                <button onclick="handleReceptionClick(${guest.id}, '已報到')" 
+                                        class="px-4 py-2 text-sm font-bold rounded-full cursor-pointer transition status-checked hover:bg-red-100 hover:text-red-700">
+                                    ✓ 已報到
+                                </button>`;
+                        } else {
+                            if (pendingConfirmId === guest.id) {
+                                // 進入確認狀態的按鈕外觀
+                                actionHtml = `
+                                    <button onclick="handleReceptionClick(${guest.id}, '未報到')" 
+                                            class="px-4 py-2 text-sm font-extrabold rounded-full cursor-pointer transition status-confirm shadow-sm animate-bounce">
+                                        ❓ 再點一次確認
+                                    </button>`;
+                            } else {
+                                // 預設未報到按鈕外觀
+                                actionHtml = `
+                                    <button onclick="handleReceptionClick(${guest.id}, '未報到')" 
+                                            class="px-4 py-2 text-sm font-bold rounded-full cursor-pointer transition status-unchecked hover:bg-blue-50 hover:text-blue-600">
+                                        未報到
+                                    </button>`;
+                            }
+                        }
                     } else {
+                        // 🏛️ 長官席模式（含字體放大與新到場閃爍提示）
                         if (guest.status === '已報到') {
                             if (!guest.introduced) {
-                                rowClass = 'bg-amber-50/70 font-semibold'; 
+                                // 🌟 新到場、未介紹：使用 bg-amber-50，並加上 animate-pulse 閃爍呼吸燈提示
+                                rowClass = 'bg-amber-50 font-semibold animate-pulse border-l-4 border-amber-500'; 
                                 actionHtml = `
-                                    <button onclick="toggleIntroduced(${guest.id})" class="px-3 py-1 text-xs font-bold rounded-md bg-blue-600 text-white hover:bg-blue-700 cursor-pointer transition shadow-xs">
+                                    <button onclick="toggleIntroduced(${guest.id})" class="px-4 py-2 text-sm font-extrabold rounded-lg bg-blue-600 text-white hover:bg-blue-700 cursor-pointer transition shadow-md">
                                         📢 點此標記已介紹
                                     </button>`;
                             } else {
                                 rowClass = 'bg-gray-50 opacity-40';
                                 actionHtml = `
-                                    <button onclick="toggleIntroduced(${guest.id})" class="px-3 py-1 text-xs font-medium rounded-md bg-gray-300 text-gray-700 hover:bg-gray-400 cursor-pointer transition">
+                                    <button onclick="toggleIntroduced(${guest.id})" class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-300 text-gray-700 hover:bg-gray-400 cursor-pointer transition">
                                         ✓ 已介紹 (撤銷)
                                     </button>`;
                             }
                         } else {
-                            rowClass = 'bg-white opacity-30';
-                            actionHtml = `<span class="px-3 py-1 text-sm font-semibold rounded-full bg-gray-200 text-gray-500">未報到</span>`;
+                            rowClass = 'bg-white opacity-25';
+                            actionHtml = `<span class="px-4 py-2 text-sm font-medium text-gray-400">未報到</span>`;
                         }
                     }
 
-                    tr.className = `${rowClass} transition-all duration-300`;
+                    // 🛠️ 字體級距全面放大優化
+                    tr.className = `${rowClass} transition-all duration-300 hover:bg-gray-50/50`;
                     tr.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${guest.unit}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${guest.title}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${guest.name}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-center">${actionHtml}</td>
+                        <td class="px-6 py-4.5 whitespace-nowrap text-lg text-gray-900 font-bold tracking-wide">${guest.unit}</td>
+                        <td class="px-6 py-4.5 whitespace-nowrap text-base text-gray-600 font-medium">${guest.title}</td>
+                        <td class="px-6 py-4.5 whitespace-nowrap text-xl text-gray-900 font-black">${guest.name}</td>
+                        <td class="px-6 py-4.5 whitespace-nowrap text-center">${actionHtml}</td>
                     `;
                     tbody.appendChild(tr);
                 }
